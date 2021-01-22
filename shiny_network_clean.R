@@ -19,35 +19,48 @@ library(dplyr)
 library(igraph)
 library(DT)
 library(shinythemes)
-
+library(ggplot2)
 # create a test data set 
-dat <- data.frame(
-  tf=c("A","B", "C", "D","E", "F", "G","H", "I", "J"),
-  target=sample(c('k','l','m'), size=10, replace=T), 
-  correlation=runif(n=10, min= 0, max=1),
-  p_value=runif(n=10, min= 0, max=.06))
+
+x <- factor(c(LETTERS[1:20]))
+y <- factor(c(letters[21:26]))
+
+dat <- expand.grid(tf=x, target=y) 
+ dat$tf <- as.character(dat$tf)
+  dat$target <- as.character(dat$target)
+
+dat$correlation <- runif(nrow(dat), 0, 1)
+dat$p_value <- runif(nrow(dat), 0, .06)
+
 
 
 # build the shiny app 
 #####
 ui <- fluidPage( theme = shinytheme("united"),
-titlePanel("Test Network"),
-  sidebarLayout( 
-    sidebarPanel(width=2,  
-    selectInput('tf', "Transcription Factor:", choice=dat$tf, multiple=T),
-    br(),
-    selectInput('target', "Target:", choice=dat$target,  multiple=T)  
-  ),
-    mainPanel(
-      tabsetPanel( type="tabs",
-      tabPanel("Transcription Factors", dataTableOutput("tab1")),
-      tabPanel("TF-Target Pair", dataTableOutput("tab2")),
-      tabPanel("Network Plot", fillPage(visNetworkOutput("plot", height=800))),
-      tabPanel("Network Data", dataTableOutput("tab7"))
-            ) 
-    )
-  )
-)     
+ titlePanel("Test Network"),
+
+sidebarLayout( 
+
+sidebarPanel(width=2,  
+selectInput('tf', "Transcription Factor:", choice=dat$tf, multiple=T),
+br(),
+selectInput('target', "Target:", choice=dat$target,  multiple=T)  
+),
+
+mainPanel(
+  tabsetPanel( type="tabs",
+  tabPanel("Transcription Factors", dataTableOutput("tab1")),
+  tabPanel("TF-Target Pair", dataTableOutput("tab2")),
+  tabPanel("Network Plot", fillPage(visNetworkOutput("plot", height=600))),
+  tabPanel("Network Data", dataTableOutput("tab7")), 
+  tabPanel("Heatmap", plotOutput("heatmap"),plotOutput("heatmap2"))
+)
+
+)
+)
+
+)
+
 
 server <- function(input, output) {
 
@@ -76,7 +89,7 @@ edges <- reactive({data.frame(from(),to(),title()) %>% rename(from=from.., to=to
 
 output$tab7 <- renderDataTable({edges()}) # shows plot 
 
-# create network plot  ==
+# create network plot
 output$plot <- renderVisNetwork({
 visNetwork(nodes(), edges()) %>%  
 visEdges(arrows = 'to') %>% 
@@ -84,6 +97,16 @@ visNodes(color = list(background='palegreen', border='darkgreen', highlight='yel
 visIgraphLayout(type = "full", layout = "layout_nicely") %>% 
 visOptions(highlightNearest = list(enabled = T, hover = T), nodesIdSelection = T)
 })
+
+output$heatmap <- renderPlot({
+ggplot(dt(), aes(tf,target, fill=correlation)) + geom_tile() + theme_bw()
+  })
+
+output$heatmap2 <- renderPlot({
+ggplot(dt(), aes(tf,target, fill=p_value)) + geom_tile() + theme_bw()
+  })
+
+
 
 }
   
